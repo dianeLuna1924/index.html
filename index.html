@@ -26,9 +26,12 @@
             </div>
             <p class="text-slate-500 text-xs mt-0.5">Análise e Acompanhamento de Vendas em Tempo Real</p>
         </div>
-        <div class="mt-3 md:mt-0 flex gap-2">
-            <label class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow">
-                <i class="fa-solid fa-file-excel text-sm"></i> Carregar Planilha Local
+        <div class="mt-3 md:mt-0 flex gap-2 items-center">
+            <span id="statusAutoLoad" class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-sync fa-spin"></i> Atualizando dados...
+            </span>
+            <label class="bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow">
+                <i class="fa-solid fa-file-excel text-sm"></i> Trocar Arquivo
                 <input type="file" id="inputExcel" accept=".xlsx, .xls, .xlsm, .csv" class="hidden">
             </label>
             <button id="btnLimpar" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
@@ -87,9 +90,8 @@
         </div>
     </div>
 
-    <!-- CARDS COLORIDOS INTEGRADOS (SEM REPETIÇÃO) -->
+    <!-- CARDS COLORIDOS INTEGRADOS -->
     <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-        <!-- Ticket / Total Geral -->
         <div class="card-dash p-3.5 border-l-4 border-l-blue-600 bg-gradient-to-br from-blue-50/50 to-white">
             <div class="flex justify-between items-start">
                 <div>
@@ -104,7 +106,6 @@
             </div>
         </div>
 
-        <!-- Qtd de Itens -->
         <div class="card-dash p-3.5 border-l-4 border-l-indigo-500 bg-gradient-to-br from-indigo-50/50 to-white">
             <div class="flex justify-between items-start">
                 <div>
@@ -116,7 +117,6 @@
             <p class="text-[11px] text-slate-500 mt-2">Orçamentos registrados</p>
         </div>
 
-        <!-- Em Negociação -->
         <div class="card-dash p-3.5 border-l-4 border-l-amber-500 bg-gradient-to-br from-amber-50/50 to-white">
             <div class="flex justify-between items-start">
                 <div>
@@ -128,7 +128,6 @@
             <p id="cntNegociacao" class="text-[11px] text-amber-700 font-semibold mt-2">0 itens em aberto</p>
         </div>
 
-        <!-- Vendas Aprovadas -->
         <div class="card-dash p-3.5 border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-50/50 to-white">
             <div class="flex justify-between items-start">
                 <div>
@@ -140,7 +139,6 @@
             <p id="cntAprovado" class="text-[11px] text-emerald-700 font-semibold mt-2">0 aprovados</p>
         </div>
 
-        <!-- Perdido / Cancelado -->
         <div class="card-dash p-3.5 border-l-4 border-l-rose-500 bg-gradient-to-br from-rose-50/50 to-white">
             <div class="flex justify-between items-start">
                 <div>
@@ -153,7 +151,7 @@
         </div>
     </div>
 
-    <!-- 4 Gráficos Compactos na Primeira Visão -->
+    <!-- 4 Gráficos Compactos -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
         <div class="card-dash p-3">
             <h3 class="text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-1.5"><i class="fa-solid fa-chart-pie text-blue-600"></i>Status</h3>
@@ -216,6 +214,42 @@
         let chartQtdVendedorInstance = null;
         let chartVendedorEfetivoInstance = null;
 
+        // CARREGAMENTO AUTOMÁTICO DO GITHUB
+        window.addEventListener('DOMContentLoaded', function() {
+            carregarDoGithub();
+        });
+
+        function carregarDoGithub() {
+            const statusBox = document.getElementById('statusAutoLoad');
+            statusBox.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> Atualizando dados...';
+            statusBox.className = "text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5";
+
+            // Adiciona timestamp para ignorar cache antigo
+            fetch('Base_Orcamentos.xlsx?t=' + new Date().getTime())
+                .then(res => {
+                    if (!res.ok) throw new Error("Planilha não encontrada na nuvem");
+                    return res.arrayBuffer();
+                })
+                .then(buffer => {
+                    const data = new Uint8Array(buffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    let sheetName = "Base_Orcamentos";
+                    if (!workbook.SheetNames.includes(sheetName)) sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+                    
+                    processarDadosBase(json);
+                    
+                    statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Dados Atualizados';
+                    statusBox.className = "text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5";
+                })
+                .catch(err => {
+                    console.log("Aguardando upload da planilha...", err);
+                    statusBox.innerHTML = '<i class="fa-solid fa-info-circle"></i> Importe a planilha manual';
+                    statusBox.className = "text-xs font-semibold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 flex items-center gap-1.5";
+                });
+        }
+
         document.getElementById('inputExcel').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -225,19 +259,13 @@
                 try {
                     const data = new Uint8Array(evt.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
                     let sheetName = "Base_Orcamentos";
-                    if (!workbook.SheetNames.includes(sheetName)) {
-                        sheetName = workbook.SheetNames[0];
-                    }
-
+                    if (!workbook.SheetNames.includes(sheetName)) sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
 
                     processarDadosBase(json);
-                } catch (err) {
-                    console.error("Erro ao ler ficheiro:", err);
-                }
+                } catch (err) { console.error(err); }
             };
             reader.readAsArrayBuffer(file);
         });
@@ -245,19 +273,14 @@
         function converterValor(val) {
             if (val === undefined || val === null || val === "" || val === "-") return 0;
             if (typeof val === 'number') return val;
-            
             let str = val.toString().replace("R$", "").replace(/\s/g, "").trim();
             if (!str) return 0;
-
-            if (str.includes(",")) {
-                str = str.replace(/\./g, "").replace(",", ".");
-            }
+            if (str.includes(",")) str = str.replace(/\./g, "").replace(",", ".");
             return parseFloat(str) || 0;
         }
 
         function processarDadosBase(linhas) {
             dadosGlobais = [];
-
             for (let i = 2; i < linhas.length; i++) {
                 const r = linhas[i];
                 if (!r || r.length < 3) continue;
@@ -267,7 +290,6 @@
 
                 let valQ = converterValor(r[16]);
                 let valR = converterValor(r[17]);
-
                 const t1 = converterValor(r[9]);
                 const t2 = converterValor(r[12]);
                 const t3 = converterValor(r[15]);
@@ -277,14 +299,12 @@
                     if (t1 > 0) { somaT += t1; countT++; }
                     if (t2 > 0) { somaT += t2; countT++; }
                     if (t3 > 0) { somaT += t3; countT++; }
-
                     if (countT > 0) valR = somaT / countT;
                     else valR = valQ;
                 }
 
                 let statusBruto = (r[18] || "").toString().trim();
                 let motivoPerda = (r[20] || "").toString().trim();
-
                 let statusLimpo = statusBruto.toUpperCase();
                 let motivoLimpo = motivoPerda.toUpperCase();
 
@@ -306,22 +326,17 @@
                 }
 
                 let dataFormatada = "";
-                let ano = null;
-                let mes = null;
+                let ano = null, mes = null;
 
                 if (r[1]) {
                     if (typeof r[1] === 'number') {
                         const dateObj = XLSX.SSF.parse_date_code(r[1]);
-                        ano = dateObj.y;
-                        mes = dateObj.m;
+                        ano = dateObj.y; mes = dateObj.m;
                         dataFormatada = `${String(dateObj.d).padStart(2,'0')}/${String(dateObj.m).padStart(2,'0')}/${dateObj.y}`;
                     } else {
                         dataFormatada = r[1].toString().substring(0, 10);
                         const parts = dataFormatada.split('/');
-                        if (parts.length === 3) {
-                            ano = parseInt(parts[2]);
-                            mes = parseInt(parts[1]);
-                        }
+                        if (parts.length === 3) { ano = parseInt(parts[2]); mes = parseInt(parts[1]); }
                     }
                 }
 
@@ -354,288 +369,4 @@
             const motivos = [...new Set(dadosGlobais.map(d => d.motivoPerda))].filter(m => m && m !== "-").sort();
             const anos = [...new Set(dadosGlobais.map(d => d.ano))].filter(Boolean).sort((a,b) => b - a);
 
-            preencherSelect('filtroVendedor', vendedores, 'Todos os Vendedores');
-            preencherSelect('filtroStatus', statusList, 'Todos os Status');
-            preencherSelect('filtroMotivo', motivos, 'Todos os Motivos');
-            
-            const selectAno = document.getElementById('filtroAno');
-            selectAno.innerHTML = `<option value="">Todos os Anos</option>`;
-            anos.forEach(a => {
-                selectAno.innerHTML += `<option value="${a}">${a}</option>`;
-            });
-
-            if (anos.includes(2026)) {
-                selectAno.value = "2026";
-            }
-        }
-
-        function preencherSelect(id, lista, textoPadrao) {
-            const select = document.getElementById(id);
-            select.innerHTML = `<option value="">${textoPadrao}</option>`;
-            lista.forEach(item => { select.innerHTML += `<option value="${item}">${item}</option>`; });
-        }
-
-        function atualizarDashboard() {
-            const anoFilter = document.getElementById('filtroAno').value;
-            const mesFilter = document.getElementById('filtroMes').value;
-            const vendFilter = document.getElementById('filtroVendedor').value;
-            const statusFilter = document.getElementById('filtroStatus').value;
-            const motivoFilter = document.getElementById('filtroMotivo').value;
-            const buscaFilter = document.getElementById('filtroBusca').value.toLowerCase();
-
-            const filtrados = dadosGlobais.filter(d => {
-                const matchAno = !anoFilter || (d.ano && d.ano.toString() === anoFilter);
-                const matchMes = !mesFilter || (d.mes && d.mes.toString() === mesFilter);
-                const matchVend = !vendFilter || d.vendedor === vendFilter;
-                const matchStatus = !statusFilter || d.status === statusFilter;
-                const matchMotivo = !motivoFilter || d.motivoPerda === motivoFilter;
-                const matchBusca = !buscaFilter || d.cliente.toLowerCase().includes(buscaFilter) || d.numOrc.toLowerCase().includes(buscaFilter);
-
-                return matchAno && matchMes && matchVend && matchStatus && matchMotivo && matchBusca;
-            });
-
-            let totalItens = filtrados.length;
-            let valorAprovadoEfetivo = 0;
-            let valorNegociacao = 0;
-            let valorPerdidoCancelado = 0;
-            let somaColunaR = 0;
-            let somaTotalColunaQ = 0;
-
-            let cntAprov = 0;
-            let cntNegoc = 0;
-            let cntPerd = 0;
-
-            filtrados.forEach(d => {
-                somaColunaR += d.valorColunaR;
-                somaTotalColunaQ += d.totalEfetivo;
-
-                if (d.status === "Aprovado") {
-                    valorAprovadoEfetivo += d.totalEfetivo;
-                    cntAprov++;
-                } else if (d.status === "Perdido/Cancelado") {
-                    valorPerdidoCancelado += d.totalEfetivo;
-                    cntPerd++;
-                } else if (d.status === "Em Negociação") {
-                    valorNegociacao += d.totalEfetivo;
-                    cntNegoc++;
-                }
-            });
-
-            const taxaConversao = totalItens > 0 ? ((cntAprov / totalItens) * 100).toFixed(1) : 0;
-
-            document.getElementById('kpiTicketMedio').innerText = fmtMoeda(somaColunaR);
-            document.getElementById('kpiSomaTotalGeral').innerText = fmtMoeda(somaTotalColunaQ);
-            document.getElementById('kpiItens').innerText = totalItens;
-            document.getElementById('kpiNegociacao').innerText = fmtMoeda(valorNegociacao);
-            document.getElementById('kpiAprovado').innerText = fmtMoeda(valorAprovadoEfetivo);
-            document.getElementById('kpiPerdido').innerText = fmtMoeda(valorPerdidoCancelado);
-            document.getElementById('kpiConversao').innerText = taxaConversao + '%';
-
-            document.getElementById('cntNegociacao').innerText = `${cntNegoc} em negociação`;
-            document.getElementById('cntAprovado').innerText = `${cntAprov} aprovados de ${totalItens}`;
-            document.getElementById('cntPerdido').innerText = `${cntPerd} cancelados/perdidos`;
-
-            renderizarGraficos(filtrados);
-            renderizarTabela(filtrados);
-        }
-
-        function renderizarTabela(dados) {
-            const corpo = document.getElementById('corpoTabela');
-            document.getElementById('countTabela').innerText = dados.length;
-
-            if (dados.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400">Nenhum orçamento encontrado para os filtros selecionados.</td></tr>`;
-                return;
-            }
-
-            let html = "";
-            dados.forEach(d => {
-                let badgeCor = "bg-slate-200 text-slate-700";
-                if (d.status === "Aprovado") badgeCor = "bg-emerald-100 text-emerald-700 border border-emerald-300";
-                else if (d.status === "Em Negociação") badgeCor = "bg-amber-100 text-amber-700 border border-amber-300";
-                else if (d.status === "Perdido/Cancelado") badgeCor = "bg-rose-100 text-rose-700 border border-rose-300";
-
-                html += `
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="p-2.5 font-semibold text-blue-600">${d.numOrc}</td>
-                        <td class="p-2.5 text-slate-500 text-[11px]">${d.data}</td>
-                        <td class="p-2.5 font-medium text-slate-800">${d.cliente}</td>
-                        <td class="p-2.5 text-center"><span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px]">${d.uf}</span></td>
-                        <td class="p-2.5 text-slate-700">${d.vendedor}</td>
-                        <td class="p-2.5 text-slate-600 text-[11px] max-w-xs truncate">${d.descricao}</td>
-                        <td class="p-2.5 text-slate-500 text-[11px]">${d.papel}</td>
-                        <td class="p-2.5 text-right font-mono">${d.qtd.toLocaleString('pt-BR')}</td>
-                        <td class="p-2.5 text-right font-semibold text-slate-800">${fmtMoeda(d.totalEfetivo)}</td>
-                        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeCor}">${d.status}</span></td>
-                        <td class="p-2.5 text-[11px] font-semibold text-rose-600">${d.motivoPerda}</td>
-                    </tr>
-                `;
-            });
-            corpo.innerHTML = html;
-        }
-
-        function renderizarGraficos(dados) {
-            // 1. Status
-            const statusCounts = {};
-            dados.forEach(d => { statusCounts[d.status] = (statusCounts[d.status] || 0) + 1; });
-
-            if (chartStatusInstance) chartStatusInstance.destroy();
-            chartStatusInstance = new Chart(document.getElementById('chartStatus'), {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(statusCounts),
-                    datasets: [{
-                        data: Object.values(statusCounts),
-                        backgroundColor: ['#f59e0b', '#10b981', '#ef4444', '#6366f1', '#64748b']
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12, font: { size: 10 } } } } }
-            });
-
-            // 2. Motivos de Perda
-            const motivosMap = {};
-            dados.filter(d => d.status === "Perdido/Cancelado").forEach(d => {
-                const m = d.motivoPerda || "Não Especificado";
-                motivosMap[m] = (motivosMap[m] || 0) + 1;
-            });
-
-            if (chartMotivosPerdaInstance) chartMotivosPerdaInstance.destroy();
-            chartMotivosPerdaInstance = new Chart(document.getElementById('chartMotivosPerda'), {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(motivosMap).length > 0 ? Object.keys(motivosMap) : ['Sem Perdas'],
-                    datasets: [{
-                        data: Object.keys(motivosMap).length > 0 ? Object.values(motivosMap) : [1],
-                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#8b5cf6', '#ec4899', '#cbd5e1']
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12, font: { size: 10 } } } } }
-            });
-
-            // 3. Ticket Médio e Qtd por Vendedor
-            const vendSummary = {};
-            dados.forEach(d => {
-                if (!vendSummary[d.vendedor]) {
-                    vendSummary[d.vendedor] = { qtd: 0, ticketMedio: 0 };
-                }
-                vendSummary[d.vendedor].qtd += 1;
-                vendSummary[d.vendedor].ticketMedio += d.valorColunaR;
-            });
-
-            const vendedores = Object.keys(vendSummary).sort((a,b) => vendSummary[b].ticketMedio - vendSummary[a].ticketMedio);
-            const arrayQtd = vendedores.map(v => vendSummary[v].qtd);
-            const arrayTicket = vendedores.map(v => vendSummary[v].ticketMedio);
-
-            if (chartQtdVendedorInstance) chartQtdVendedorInstance.destroy();
-            chartQtdVendedorInstance = new Chart(document.getElementById('chartQtdVendedor'), {
-                type: 'bar',
-                data: {
-                    labels: vendedores,
-                    datasets: [
-                        {
-                            label: 'Ticket Médio (R$)',
-                            data: arrayTicket,
-                            backgroundColor: 'rgba(59, 130, 246, 0.85)',
-                            borderColor: '#2563eb',
-                            borderWidth: 1,
-                            yAxisID: 'yTicket',
-                            order: 2
-                        },
-                        {
-                            label: 'Qtd de Orçamentos',
-                            data: arrayQtd,
-                            type: 'line',
-                            borderColor: '#f59e0b',
-                            backgroundColor: '#f59e0b',
-                            pointRadius: 4,
-                            fill: false,
-                            yAxisID: 'yQtd',
-                            order: 1
-                        }
-                    ]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { boxWidth: 10, font: { size: 9 } } } },
-                    scales: { 
-                        x: { ticks: { font: { size: 9 } } },
-                        yTicket: { type: 'linear', position: 'left', beginAtZero: true, ticks: { font: { size: 9 } } },
-                        yQtd: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { font: { size: 9 } } }
-                    }
-                }
-            });
-
-            // 4. Volume R$ por Vendedor (Sem zerados)
-            const vendEfetivoMap = {};
-
-            dados.forEach(d => {
-                if (d.vendedor && d.temStatusDefinido) {
-                    if (!vendEfetivoMap[d.vendedor]) {
-                        vendEfetivoMap[d.vendedor] = { 
-                            negociacaoVal: 0,
-                            aprovadoVal: 0,
-                            perdidoVal: 0,
-                            totalVal: 0
-                        };
-                    }
-                    if (d.status === "Aprovado") {
-                        vendEfetivoMap[d.vendedor].aprovadoVal += d.totalEfetivo;
-                        vendEfetivoMap[d.vendedor].totalVal += d.totalEfetivo;
-                    } else if (d.status === "Em Negociação") {
-                        vendEfetivoMap[d.vendedor].negociacaoVal += d.totalEfetivo;
-                        vendEfetivoMap[d.vendedor].totalVal += d.totalEfetivo;
-                    } else if (d.status === "Perdido/Cancelado") {
-                        vendEfetivoMap[d.vendedor].perdidoVal += d.totalEfetivo;
-                        vendEfetivoMap[d.vendedor].totalVal += d.totalEfetivo;
-                    }
-                }
-            });
-
-            const vendedoresComValores = Object.keys(vendEfetivoMap)
-                .filter(v => vendEfetivoMap[v].totalVal > 0)
-                .sort((a,b) => vendEfetivoMap[b].totalVal - vendEfetivoMap[a].totalVal);
-
-            if (chartVendedorEfetivoInstance) chartVendedorEfetivoInstance.destroy();
-            chartVendedorEfetivoInstance = new Chart(document.getElementById('chartVendedorEfetivo'), {
-                type: 'bar',
-                data: {
-                    labels: vendedoresComValores,
-                    datasets: [
-                        { label: 'Em Negociação', data: vendedoresComValores.map(v => vendEfetivoMap[v].negociacaoVal), backgroundColor: '#f59e0b' },
-                        { label: 'Aprovado', data: vendedoresComValores.map(v => vendEfetivoMap[v].aprovadoVal), backgroundColor: '#10b981' },
-                        { label: 'Perdido/Cancelado', data: vendedoresComValores.map(v => vendEfetivoMap[v].perdidoVal), backgroundColor: '#ef4444' }
-                    ]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { boxWidth: 10, font: { size: 9 } } } },
-                    scales: {
-                        x: { ticks: { font: { size: 9 } } },
-                        y: { ticks: { font: { size: 9 } } }
-                    }
-                }
-            });
-        }
-
-        function fmtMoeda(val) {
-            return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        }
-
-        ['filtroAno', 'filtroMes', 'filtroVendedor', 'filtroStatus', 'filtroMotivo'].forEach(id => {
-            document.getElementById(id).addEventListener('change', atualizarDashboard);
-        });
-        document.getElementById('filtroBusca').addEventListener('input', atualizarDashboard);
-        document.getElementById('btnLimpar').addEventListener('click', () => {
-            document.getElementById('filtroAno').value = "2026";
-            document.getElementById('filtroMes').value = "";
-            document.getElementById('filtroVendedor').value = "";
-            document.getElementById('filtroStatus').value = "";
-            document.getElementById('filtroMotivo').value = "";
-            document.getElementById('filtroBusca').value = "";
-            atualizarDashboard();
-        });
-    </script>
-</body>
-</html>
+            preencherSelect('filtroVendedor
