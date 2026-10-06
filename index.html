@@ -225,7 +225,7 @@
             statusBox.className = "text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5";
 
             // Adiciona timestamp para ignorar cache antigo
-            fetch('Base_Orcamentos.xlsx?t=' + new Date().getTime())
+            fetch('./Base_Orcamentos.xlsx?t=' + new Date().getTime())
                 .then(res => {
                     if (!res.ok) throw new Error("Planilha não encontrada na nuvem");
                     return res.arrayBuffer();
