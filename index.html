@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REGISPEL - Painel Controle de Orçamentos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f8fafc; color: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .card-dash { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .scroll-tabela { max-height: 320px; overflow-y: auto; }
+        .scroll-tabela thead th { position: sticky; top: 0; background-color: #f1f5f9; z-index: 10; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+
+    <!-- Header Compacto -->
+    <header class="flex flex-col md:flex-row justify-between items-center mb-4 pb-3 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="bg-blue-600 text-[10px] font-bold px-2 py-0.5 rounded text-white tracking-wide">REGISPEL</span>
+                <h1 class="text-xl font-bold text-slate-800">Painel Controle de Orçamentos</h1>
+            </div>
+            <p class="text-slate-500 text-xs mt-0.5">Análise e Acompanhamento de Vendas em Tempo Real</p>
+        </div>
+        <div class="mt-3 md:mt-0 flex gap-2 items-center">
+            <span id="statusAutoLoad" class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-sync fa-spin"></i> A carregar dados...
+            </span>
+            <label class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow">
+                <i class="fa-solid fa-file-excel text-sm"></i> Carregar Planilha Local
+                <input type="file" id="inputExcel" accept=".xlsx, .xls, .xlsm, .csv" class="hidden">
+            </label>
+            <button id="btnLimpar" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+                <i class="fa-solid fa-arrows-rotate mr-1"></i> Limpar Filtros
+            </button>
+        </div>
+    </header>
+
+    <!-- Filtros em Linha Única -->
+    <div class="card-dash p-3 mb-4 grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+        <div>
+            <label class="font-bold text-slate-500 uppercase text-[10px]">Ano</label>
+            <select id="filtroAno" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-md p-1.5 text-slate-800 focus:outline-none focus:border-blue-500">
+                <option value="">Todos os Anos</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-bold text-slate-500 uppercase text-[10px]">Mês</label>
+            <select id="filtroMes" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-md p-1.5 text-slate-800 focus:outline-none focus:border-blue-500">
+                <option value="">Todos os Meses</option>
+                <option value="1">Janeiro</option>
+                <option value="2">Fevereiro</option>
+                <option value="3">Março</option>
+                <option value="4">Abril</option>
+                <option value="5">Maio</option>
+                <option value="6">Junho</option>
+                <option value="7">Julho</option>
+                <option value="8">Agosto</option>
+                <option value="9">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+                <option value="12">Dezembro</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-bold text-slate-500 uppercase text-[10px]">Vendedor</label>
+            <select id="filtroVendedor" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-md p-1.5 text-slate-800 focus:outline-none focus:border-blue-500">
+                <option value="">Todos os Vendedores</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-bold text-slate-500 uppercase text-[10px]">Status</label>
+            <select id="filtroStatus" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-md p-1.5 text-slate-800 focus:outline-none focus:border-blue-500">
+                <option value="">Todos os Status</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-bold text-slate-500 uppercase text-[10px]">Motivo de Perda</label>
+            <select id="filtroMotivo" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-md p-1.5 text-slate-800 focus:outline-none focus:border-blue-500">
+                <option value="">Todos os Motivos</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-bold text-slate-500 uppercase text-[10px]">Buscar Cliente / ORC</label>
+            <input type="text" id="filtroBusca" placeholder="Cliente ou ORC..." class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-md p-1.5 text-slate-800 focus:outline-none focus:border-blue-500">
+        </div>
+    </div>
+
+    <!-- CARDS COLORIDOS DESTACADOS (6 CARDS EM DESTAQUE) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+        
+        <!-- Valor Total Efetivo -->
+        <div class="card-dash p-3.5 border-l-4 border-l-blue-600 bg-gradient-to-br from-blue-50/50 to-white">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Valor Total Efetivo</span>
+                    <h2 id="kpiSomaTotalGeral" class="text-lg font-black text-slate-800 mt-1">R$ 0,00</h2>
+                </div>
+                <div class="p-2 bg-blue-100 text-blue-600 rounded-lg"><i class="fa-solid fa-wallet text-sm"></i></div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-2">Volume total gerado</p>
+        </div>
+
+        <!-- Ticket Médio DESTACADO -->
+        <div class="card-dash p-3.5 border-l-4 border-l-violet-600 bg-gradient-to-br from-violet-50/70 to-white shadow-sm">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold text-violet-700 uppercase tracking-wider">Ticket Médio</span>
+                    <h2 id="kpiTicketMedio" class="text-lg font-black text-violet-950 mt-1">R$ 0,00</h2>
+                </div>
+                <div class="p-2 bg-violet-100 text-violet-700 rounded-lg"><i class="fa-solid fa-tag text-sm"></i></div>
+            </div>
+            <p class="text-[11px] text-violet-800 font-medium mt-2">Média por proposta</p>
+        </div>
+
+        <!-- Taxa de Conversão DESTACADA -->
+        <div class="card-dash p-3.5 border-l-4 border-l-indigo-600 bg-gradient-to-br from-indigo-50/70 to-white shadow-sm">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Taxa Conversão</span>
+                    <h2 id="kpiConversao" class="text-xl font-black text-indigo-950 mt-1">0%</h2>
+                </div>
+                <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg"><i class="fa-solid fa-chart-line text-sm"></i></div>
+            </div>
+            <p class="text-[11px] text-indigo-800 font-medium mt-2">Eficiência de vendas</p>
+        </div>
+
+        <!-- Em Negociação -->
+        <div class="card-dash p-3.5 border-l-4 border-l-amber-500 bg-gradient-to-br from-amber-50/50 to-white">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Em Negociação</span>
+                    <h2 id="kpiNegociacao" class="text-lg font-black text-slate-800 mt-1">R$ 0,00</h2>
+                </div>
+                <div class="p-2 bg-amber-100 text-amber-600 rounded-lg"><i class="fa-solid fa-hourglass-half text-sm"></i></div>
+            </div>
+            <p id="cntNegociacao" class="text-[11px] text-amber-700 font-semibold mt-2">0 itens em aberto</p>
+        </div>
+
+        <!-- Vendas Aprovadas -->
+        <div class="card-dash p-3.5 border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-50/50 to-white">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Vendas Aprovadas</span>
+                    <h2 id="kpiAprovado" class="text-lg font-black text-slate-800 mt-1">R$ 0,00</h2>
+                </div>
+                <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><i class="fa-solid fa-circle-check text-sm"></i></div>
+            </div>
+            <p id="cntAprovado" class="text-[11px] text-emerald-700 font-semibold mt-2">0 aprovados</p>
+        </div>
+
+        <!-- Perdido / Cancelado -->
+        <div class="card-dash p-3.5 border-l-4 border-l-rose-500 bg-gradient-to-br from-rose-50/50 to-white">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Perdido / Cancelado</span>
+                    <h2 id="kpiPerdido" class="text-lg font-black text-slate-800 mt-1">R$ 0,00</h2>
+                </div>
+                <div class="p-2 bg-rose-100 text-rose-600 rounded-lg"><i class="fa-solid fa-circle-xmark text-sm"></i></div>
+            </div>
+            <p id="cntPerdido" class="text-[11px] text-rose-700 font-semibold mt-2">0 perdidos/cancelados</p>
+        </div>
+    </div>
+
+    <!-- 4 Gráficos Compactos -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+        <div class="card-dash p-3">
+            <h3 class="text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-1.5"><i class="fa-solid fa-chart-pie text-blue-600"></i>Status</h3>
+            <div class="h-48 flex justify-center"><canvas id="chartStatus"></canvas></div>
+        </div>
+        <div class="card-dash p-3">
+            <h3 class="text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation text-rose-600"></i>Motivos de Perda</h3>
+            <div class="h-48 flex justify-center"><canvas id="chartMotivosPerda"></canvas></div>
+        </div>
+        <div class="card-dash p-3">
+            <h3 class="text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-1.5"><i class="fa-solid fa-chart-column text-indigo-600"></i>Ticket & Qtd / Vendedor</h3>
+            <div class="h-48"><canvas id="chartQtdVendedor"></canvas></div>
+        </div>
+        <div class="card-dash p-3">
+            <h3 class="text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-1.5"><i class="fa-solid fa-sack-dollar text-emerald-600"></i>Volume R$ / Vendedor</h3>
+            <div class="h-48"><canvas id="chartVendedorEfetivo"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Tabela Menor com Scroll Próprio -->
+    <div class="card-dash p-4">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-blue-600"></i>
+                Detalhamento dos Orçamentos (<span id="countTabela">0</span> registros)
+            </h3>
+            <span class="text-[11px] text-slate-400">Role para navegar pelos registros</span>
+        </div>
+        
+        <div class="scroll-tabela border border-slate-200 rounded-lg">
+            <table class="w-full text-left text-xs text-slate-700">
+                <thead class="text-[11px] uppercase text-slate-600 border-b border-slate-200">
+                    <tr>
+                        <th class="p-2.5">Nº ORC</th>
+                        <th class="p-2.5">Data</th>
+                        <th class="p-2.5">Cliente</th>
+                        <th class="p-2.5 text-center">UF</th>
+                        <th class="p-2.5">Vendedor</th>
+                        <th class="p-2.5">Produto / Descrição</th>
+                        <th class="p-2.5">Papel</th>
+                        <th class="p-2.5 text-right">Qtd</th>
+                        <th class="p-2.5 text-right">Valor Total Efetivo</th>
+                        <th class="p-2.5 text-center">Status</th>
+                        <th class="p-2.5">Motivo de Perda</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela" class="divide-y divide-slate-100">
+                    <tr>
+                        <td colspan="11" class="p-4 text-center text-slate-400">Nenhum dado carregado. Importe a planilha no topo.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let dadosGlobais = [];
+        let chartStatusInstance = null;
+        let chartMotivosPerdaInstance = null;
+        let chartQtdVendedorInstance = null;
+        let chartVendedorEfetivoInstance = null;
+
+        // CARREGAMENTO AUTOMÁTICO DO GITHUB
+        window.addEventListener('DOMContentLoaded', function() {
+            carregarDoGithub();
+        });
+
+        function carregarDoGithub() {
+            const statusBox = document.getElementById('statusAutoLoad');
+            statusBox.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> A carregar dados...';
+            statusBox.className = "text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1.5";
+
+            const fileUrl = 'https://raw.githubusercontent.com/dianeLuna1924/painel-controle-orcamentos/main/Base_Orcamentos.xlsx?t=' + new Date().getTime();
+
+            fetch(fileUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error("Planilha não encontrada na nuvem");
+                    return res.arrayBuffer();
+                })
+                .then(buffer => {
+                    const data = new Uint8Array(buffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    let sheetName = "Base_Orcamentos";
+                    if (!workbook.SheetNames.includes(sheetName)) sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+                    
+                    processarDadosBase(json);
+                    
+                    statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Dados Atualizados';
+                    statusBox.className = "text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5";
+                })
+                .catch(err => {
+                    console.warn("Tentando caminho relativo local...", err);
+                    fetch('Base_Orcamentos.xlsx')
+                        .then(r => r.arrayBuffer())
+                        .then(b => {
+                            const data = new Uint8Array(b);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            let sheetName = workbook.SheetNames.includes("Base_Orcamentos") ? "Base_Orcamentos" : workbook.SheetNames[0];
+                            const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true });
+                            processarDadosBase(json);
+                            statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Dados Atualizados';
+                            statusBox.className = "text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5";
+                        })
+                        .catch(() => {
+                            statusBox.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i> Selecione a planilha local';
+                            statusBox.className = "text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-300 flex items-center gap-1.5";
+                        });
+                });
+        }
+
+        document.getElementById('inputExcel').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    let sheetName = "Base_Orcamentos";
+                    if (!workbook.SheetNames.includes(sheetName)) sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+
+                    processarDadosBase(json);
+                    const statusBox = document.getElementById('statusAutoLoad');
+                    statusBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> Planilha Carregada';
+                    statusBox.className = "text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5";
+                } catch (err) { console.error(err); }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function converterValor(val) {
+            if (val === undefined || val === null || val === "" || val === "-") return 0;
+            if (typeof val === 'number') return val;
+            let str = val.toString().replace("R$", "").replace(/\s/g, "").trim();
+            if (!str) return 0;
+            if (str.includes(",")) str = str.replace(/\./g, "").replace(",", ".");
+            return parseFloat(str) || 0;
+        }
+
+        function processarDadosBase(linhas) {
+            dadosGlobais = [];
+            for (let i = 2; i < linhas.length; i++) {
+                const r = linhas[i];
+                if (!r || r.length < 3) continue;
+
+                const numOrc = (r[0] || "").toString().trim();
+                if (!numOrc) continue;
+
+                let valQ = converterValor(r[16]);
+                let valR = converterValor(r[17]);
+                const t1 = converterValor(r[9]);
+                const t2 = converterValor(r[12]);
+                const t3 = converterValor(r[15]);
+
+                if (valR === 0) {
+                    let somaT = 0, countT = 0;
+                    if (t1 > 0) { somaT += t1; countT++; }
+                    if (t2 > 0) { somaT += t2; countT++; }
+                    if (t3 > 0) { somaT += t3; countT++; }
+                    if (countT > 0) valR = somaT / countT;
+                    else valR = valQ;
+                }
+
+                let statusBruto = (r[18] || "").toString().trim();
+                let motivoPerda = (r[20] || "").toString().trim();
+                let statusLimpo = statusBruto.toUpperCase();
+                let motivoLimpo = motivoPerda.toUpperCase();
+
+                let statusClassificado = "Aguardando Retorno";
+                let temStatusDefinido = false;
+
+                if (statusLimpo.includes("PERDID") || statusLimpo.includes("CANCELAD") || statusLimpo.includes("NÃO FECHAD") || statusLimpo.includes("NAO FECHAD") || motivoLimpo !== "") {
+                    statusClassificado = "Perdido/Cancelado";
+                    temStatusDefinido = true;
+                } else if (statusLimpo === "APROVADO" || statusLimpo === "APROVADA") {
+                    statusClassificado = "Aprovado";
+                    temStatusDefinido = true;
+                } else if (statusLimpo.includes("EM NEGOCIAÇÃO") || statusLimpo.includes("EM NEGOCIACAO") || statusLimpo.includes("NEGOCIAÇÃO") || statusLimpo.includes("NEGOCIACAO")) {
+                    statusClassificado = "Em Negociação";
+                    temStatusDefinido = true;
+                } else if (statusBruto !== "" && statusBruto !== "0") {
+                    statusClassificado = statusBruto;
+                    temStatusDefinido = true;
+                }
+
+                let dataFormatada = "";
+                let ano = null, mes = null;
+
+                if (r[1]) {
+                    if (typeof r[1] === 'number') {
+                        const dateObj = XLSX.SSF.parse_date_code(r[1]);
+                        ano = dateObj.y; mes = dateObj.m;
+                        dataFormatada = `${String(dateObj.d).padStart(2,'0')}/${String(dateObj.m).padStart(2,'0')}/${dateObj.y}`;
+                    } else {
+                        dataFormatada = r[1].toString().substring(0, 10);
+                        const parts = dataFormatada.split('/');
+                        if (parts.length === 3) { ano = parseInt(parts[2]); mes = parseInt(parts[1]); }
+                    }
+                }
+
+                dadosGlobais.push({
+                    numOrc: numOrc,
+                    data: dataFormatada,
+                    ano: ano,
+                    mes: mes,
+                    cliente: (r[2] || "NÃO INFORMADO").toString().trim(),
+                    uf: (r[3] || "SP").toString().trim(),
+                    vendedor: (r[4] || "NÃO INFORMADO").toString().trim(),
+                    descricao: (r[5] || "").toString().trim(),
+                    papel: (r[6] || "").toString().trim(),
+                    qtd: converterValor(r[7]),
+                    totalEfetivo: valQ,
+                    valorColunaR: valR,
+                    status: statusClassificado,
+                    motivoPerda: motivoPerda || (statusClassificado === "Perdido/Cancelado" ? "Não Especificado" : "-"),
+                    temStatusDefinido: temStatusDefinido
+                });
+            }
+
+            popularFiltros();
+            atualizarDashboard();
+        }
+
+        function popularFiltros() {
+            const vendedores = [...new Set(dadosGlobais.map(d => d.vendedor))].filter(Boolean).sort();
+            const statusList = [...new Set(dadosGlobais.map(d => d.status))].filter(Boolean).sort();
+            const motivos = [...new Set(dadosGlobais.map(d => d.motivoPerda))].filter(m => m && m !== "-").sort();
+            const anos = [...new Set(dadosGlobais.map(d => d.ano))].filter(Boolean).sort((a,b) => b - a);
+
+            preencherSelect('filtroVendedor', vendedores, 'Todos os Vendedores');
+            preencherSelect('filtroStatus', statusList, 'Todos os Status');
+            preencherSelect('filtroMotivo', motivos, 'Todos os Motivos');
+            
+            const selectAno = document.getElementById('filtroAno');
+            selectAno.innerHTML = `<option value="">Todos os Anos</option>`;
+            anos.forEach(a => { selectAno.innerHTML += `<option value="${a}">${a}</option>`; });
+
+            if (anos.includes(2026)) selectAno.value = "2026";
+        }
+
+        function preencherSelect(id, lista, textoPadrao) {
+            const select = document.getElementById(id);
+            select.innerHTML = `<option value="">${textoPadrao}</option>`;
+            lista.forEach(item => { select.innerHTML += `<option value="${item}">${item}</option>`; });
+        }
+
+        function atualizarDashboard() {
+            const anoFilter = document.getElementById('filtroAno').value;
+            const mesFilter = document.getElementById('filtroMes').value;
+            const vendFilter = document.getElementById('filtroVendedor').value;
+            const statusFilter = document.getElementById('filtroStatus').value;
+            const motivoFilter = document.getElementById('filtroMotivo').value;
+            const buscaFilter = document.getElementById('filtroBusca').value.toLowerCase();
+
+            const filtrados = dadosGlobais.filter(d => {
+                const matchAno = !anoFilter || (d.ano && d.ano.toString() === anoFilter);
+                const matchMes = !mesFilter || (d.mes && d.mes.toString() === mesFilter);
+                const matchVend = !vendFilter || d.vendedor === vendFilter;
+                const matchStatus = !statusFilter || d.status === statusFilter;
+                const matchMotivo = !motivoFilter || d.motivoPerda === motivoFilter;
+                const matchBusca = !buscaFilter || d.cliente.toLowerCase().includes(buscaFilter) || d.numOrc.toLowerCase().includes(buscaFilter);
+
+                return matchAno && matchMes && matchVend && matchStatus && matchMotivo && matchBusca;
+            });
+
+            let totalItens = filtrados.length;
+            let valorAprovadoEfetivo = 0, valorNegociacao = 0, valorPerdidoCancelado = 0, somaColunaR = 0, somaTotalColunaQ = 0;
+            let cntAprov = 0, cntNegoc = 0, cntPerd = 0;
+
+            filtrados.forEach(d => {
+                somaColunaR += d.valorColunaR;
+                somaTotalColunaQ += d.totalEfetivo;
+
+                if (d.status === "Aprovado") { valorAprovadoEfetivo += d.totalEfetivo; cntAprov++; }
+                else if (d.status === "Perdido/Cancelado") { valorPerdidoCancelado += d.totalEfetivo; cntPerd++; }
+                else if (d.status === "Em Negociação") { valorNegociacao += d.totalEfetivo; cntNegoc++; }
+            });
+
+            const ticketMedioGeral = totalItens > 0 ? (somaColunaR / totalItens) : 0;
+            const taxaConversao = totalItens > 0 ? ((cntAprov / totalItens) * 100).toFixed(1) : 0;
+
+            document.getElementById('kpiTicketMedio').innerText = fmtMoeda(ticketMedioGeral);
+            document.getElementById('kpiSomaTotalGeral').innerText = fmtMoeda(somaTotalColunaQ);
+            document.getElementById('kpiNegociacao').innerText = fmtMoeda(valorNegociacao);
+            document.getElementById('kpiAprovado').innerText = fmtMoeda(valorAprovadoEfetivo);
+            document.getElementById('kpiPerdido').innerText = fmtMoeda(valorPerdidoCancelado);
+            document.getElementById('kpiConversao').innerText = taxaConversao + '%';
+
+            document.getElementById('cntNegociacao').innerText = `${cntNegoc} em negociação`;
+            document.getElementById('cntAprovado').innerText = `${cntAprov} aprovados de ${totalItens}`;
+            document.getElementById('cntPerdido').innerText = `${cntPerd} cancelados/perdidos`;
+
+            renderizarGraficos(filtrados);
+            renderizarTabela(filtrados);
+        }
+
+        function renderizarTabela(dados) {
+            const corpo = document.getElementById('corpoTabela');
+            document.getElementById('countTabela').innerText = dados.length;
+
+            if (dados.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400">Nenhum orçamento encontrado para os filtros selecionados.</td></tr>`;
+                return;
+            }
+
+            let html = "";
+            dados.forEach(d => {
+                let badgeCor = "bg-slate-200 text-slate-700";
+                if (d.status === "Aprovado") badgeCor = "bg-emerald-100 text-emerald-700 border border-emerald-300";
+                else if (d.status === "Em Negociação") badgeCor = "bg-amber-100 text-amber-700 border border-amber-300";
+                else if (d.status === "Perdido/Cancelado") badgeCor = "bg-rose-100 text-rose-700 border border-rose-300";
+
+                html += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-2.5 font-semibold text-blue-600">${d.numOrc}</td>
+                        <td class="p-2.5 text-slate-500 text-[11px]">${d.data}</td>
+                        <td class="p-2.5 font-medium text-slate-800">${d.cliente}</td>
+                        <td class="p-2.5 text-center"><span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px]">${d.uf}</span></td>
+                        <td class="p-2.5 text-slate-700">${d.vendedor}</td>
+                        <td class="p-2.5 text-slate-600 text-[11px] max-w-xs truncate">${d.descricao}</td>
+                        <td class="p-2.5 text-slate-500 text-[11px]">${d.papel}</td>
+                        <td class="p-2.5 text-right font-mono">${d.qtd.toLocaleString('pt-BR')}</td>
+                        <td class="p-2.5 text-right font-semibold text-slate-800">${fmtMoeda(d.totalEfetivo)}</td>
+                        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeCor}">${d.status}</span></td>
+                        <td class="p-2.5 text-[11px] font-semibold text-rose-600">${d.motivoPerda}</td>
+                    </tr>
+                `;
+            });
+            corpo.innerHTML = html;
+        }
+
+        function renderizarGraficos(dados) {
+            const statusCounts = {};
+            dados.forEach(d => { statusCounts[d.status] = (statusCounts[d.status] || 0) + 1; });
+
+            if (chartStatusInstance) chartStatusInstance.destroy();
+            chartStatusInstance = new Chart(document.getElementById('chartStatus'), {
+                type: 'doughnut',
+                data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#f59e0b', '#10b981', '#ef4444', '#6366f1', '#64748b'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12, font: { size: 10 } } } } }
+            });
+
+            const motivosMap = {};
+            dados.filter(d => d.status === "Perdido/Cancelado").forEach(d => {
+                const m = d.motivoPerda || "Não Especificado";
+                motivosMap[m] = (motivosMap[m] || 0) + 1;
+            });
+
+            if (chartMotivosPerdaInstance) chartMotivosPerdaInstance.destroy();
+            chartMotivosPerdaInstance = new Chart(document.getElementById('chartMotivosPerda'), {
+                type: 'pie',
+                data: { labels: Object.keys(motivosMap).length > 0 ? Object.keys(motivosMap) : ['Sem Perdas'], datasets: [{ data: Object.keys(motivosMap).length > 0 ? Object.values(motivosMap) : [1], backgroundColor: ['#ef4444', '#f97316', '#eab308', '#8b5cf6', '#ec4899', '#cbd5e1'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12, font: { size: 10 } } } } }
+            });
+
+            const vendSummary = {};
+            dados.forEach(d => {
+                if (!vendSummary[d.vendedor]) vendSummary[d.vendedor] = { qtd: 0, ticketMedio: 0 };
+                vendSummary[d.vendedor].qtd += 1;
+                vendSummary[d.vendedor].ticketMedio += d.valorColunaR;
+            });
+
+            const vendedores = Object.keys(vendSummary).sort((a,b) => vendSummary[b].ticketMedio - vendSummary[a].ticketMedio);
+            const arrayQtd = vendedores.map(v => vendSummary[v].qtd);
+            const arrayTicket = vendedores.map(v => vendSummary[v].ticketMedio);
+
+            if (chartQtdVendedorInstance) chartQtdVendedorInstance.destroy();
+            chartQtdVendedorInstance = new Chart(document.getElementById('chartQtdVendedor'), {
+                type: 'bar',
+                data: {
+                    labels: vendedores,
+                    datasets: [
+                        { label: 'Ticket Médio (R$)', data: arrayTicket, backgroundColor: 'rgba(59, 130, 246, 0.85)', borderColor: '#2563eb', borderWidth: 1, yAxisID: 'yTicket', order: 2 },
+                        { label: 'Qtd de Orçamentos', data: arrayQtd, type: 'line', borderColor: '#f59e0b', backgroundColor: '#f59e0b', pointRadius: 4, fill: false, yAxisID: 'yQtd', order: 1 }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { boxWidth: 10, font: { size: 9 } } } },
+                    scales: { 
+                        x: { ticks: { font: { size: 9 } } },
+                        yTicket: { type: 'linear', position: 'left', beginAtZero: true, ticks: { font: { size: 9 } } },
+                        yQtd: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { font: { size: 9 } } }
+                    }
+                }
+            });
+
+            const vendEfetivoMap = {};
+            dados.forEach(d => {
+                if (d.vendedor && d.temStatusDefinido) {
+                    if (!vendEfetivoMap[d.vendedor]) vendEfetivoMap[d.vendedor] = { negociacaoVal: 0, aprovadoVal: 0, perdidoVal: 0, totalVal: 0 };
+                    if (d.status === "Aprovado") { vendEfetivoMap[d.vendedor].aprovadoVal += d.totalEfetivo; vendEfetivoMap[d.vendedor].totalVal += d.totalEfetivo; }
+                    else if (d.status === "Em Negociação") { vendEfetivoMap[d.vendedor].negociacaoVal += d.totalEfetivo; vendEfetivoMap[d.vendedor].totalVal += d.totalEfetivo; }
+                    else if (d.status === "Perdido/Cancelado") { vendEfetivoMap[d.vendedor].perdidoVal += d.totalEfetivo; vendEfetivoMap[d.vendedor].totalVal += d.totalEfetivo; }
+                }
+            });
+
+            const vendedoresComValores = Object.keys(vendEfetivoMap).filter(v => vendEfetivoMap[v].totalVal > 0).sort((a,b) => vendEfetivoMap[b].totalVal - vendEfetivoMap[a].totalVal);
+
+            if (chartVendedorEfetivoInstance) chartVendedorEfetivoInstance.destroy();
+            chartVendedorEfetivoInstance = new Chart(document.getElementById('chartVendedorEfetivo'), {
+                type: 'bar',
+                data: {
+                    labels: vendedoresComValores,
+                    datasets: [
+                        { label: 'Em Negociação', data: vendedoresComValores.map(v => vendEfetivoMap[v].negociacaoVal), backgroundColor: '#f59e0b' },
+                        { label: 'Aprovado', data: vendedoresComValores.map(v => vendEfetivoMap[v].aprovadoVal), backgroundColor: '#10b981' },
+                        { label: 'Perdido/Cancelado', data: vendedoresComValores.map(v => vendEfetivoMap[v].perdidoVal), backgroundColor: '#ef4444' }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { boxWidth: 10, font: { size: 9 } } } },
+                    scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
+                }
+            });
+        }
+
+        function fmtMoeda(val) { return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+
+        ['filtroAno', 'filtroMes', 'filtroVendedor', 'filtroStatus', 'filtroMotivo'].forEach(id => {
+            document.getElementById(id).addEventListener('change', atualizarDashboard);
+        });
+        document.getElementById('filtroBusca').addEventListener('input', atualizarDashboard);
+        document.getElementById('btnLimpar').addEventListener('click', () => {
+            document.getElementById('filtroAno').value = "2026";
+            document.getElementById('filtroMes').value = "";
+            document.getElementById('filtroVendedor').value = "";
+            document.getElementById('filtroStatus').value = "";
+            document.getElementById('filtroMotivo').value = "";
+            document.getElementById('filtroBusca').value = "";
+            atualizarDashboard();
+        });
+    </script>
+</body>
+</html>
